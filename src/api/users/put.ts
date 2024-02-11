@@ -1,11 +1,17 @@
 import * as Http from 'http';
 import { sendResponse } from '../../utils/sendResponse';
-import { addUser } from './storage';
-import { sendInvalidJson, sendInvalidUserFields, validateUser } from './utils';
+import { updateUser } from './storage';
+import {
+  checkInvalidUserId,
+  sendInvalidJson,
+  sendInvalidUserFields,
+  validateUser,
+} from './utils';
 
-export const apiUsersPost = (
+export const apiUsersPut = (
   req: Http.IncomingMessage,
   res: Http.ServerResponse,
+  path: string,
 ) => {
   let requestBody = '';
 
@@ -16,16 +22,13 @@ export const apiUsersPost = (
   req.on('end', () => {
     try {
       const userBody = JSON.parse(requestBody);
+      const id = path;
+      checkInvalidUserId(res, id);
       if (!validateUser(userBody)) {
         return sendInvalidUserFields(res);
       }
-      const createdUser = addUser(
-        userBody.username,
-        userBody.age,
-        userBody.hobbies,
-      );
-
-      return sendResponse(res, 201, createdUser);
+      const createdUser = updateUser(id, userBody);
+      return sendResponse(res, 200, createdUser);
     } catch (e) {
       return sendInvalidJson(res);
     }

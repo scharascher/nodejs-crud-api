@@ -1,7 +1,7 @@
 import * as Http from 'http';
 import { sendResponse } from '../../utils/sendResponse';
 import { getUser, users } from './storage';
-import { validateUuid } from '../../utils/validateUuid';
+import { checkInvalidUserId, checkUserExists } from './utils';
 
 export const apiUsersGet = (
   _: Http.IncomingMessage,
@@ -10,12 +10,8 @@ export const apiUsersGet = (
 ) => {
   if (!path) return sendResponse(res, 200, users);
   const id = path;
-  if (!validateUuid(id)) {
-    return sendResponse(res, 400, { error: 'Invalid user id' });
-  }
+  checkInvalidUserId(res, id);
   const user = getUser(id);
-  if (!user) {
-    return sendResponse(res, 404, { error: 'User not found' });
-  }
+  checkUserExists(res, user);
   return sendResponse(res, 200, user);
 };
