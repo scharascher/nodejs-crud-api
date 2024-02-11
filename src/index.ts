@@ -2,6 +2,8 @@ import http from 'http';
 import { sendResponse } from './utils/sendResponse';
 import { apiUsersGet } from './api/users/get';
 import { apiUsersPost } from './api/users/post';
+import { apiUsersDelete } from './api/users/delete';
+import { apiUsersPut } from './api/users/put';
 
 const PORT = 3000;
 const server = http.createServer((req, res) => {
@@ -18,15 +20,20 @@ const server = http.createServer((req, res) => {
       case 'POST': {
         return apiUsersPost(req, res);
       }
+      case 'PUT': {
+        return apiUsersPut(req, res, restPath);
+      }
+      case 'DELETE': {
+        return apiUsersDelete(req, res, restPath);
+      }
       default: {
         return sendResponse(res, 404, { error: 'Method not allowed' });
       }
     }
   } catch (e: unknown) {
-    if (e instanceof Error) {
-      sendResponse(res, 500, { error: e.toString(), stack: e.stack });
-    }
-    sendResponse(res, 500, { error: 'Server error' });
+    return sendResponse(res, 500, {
+      error: e instanceof Error ? e.toString() : 'Server error',
+    });
   }
 });
 

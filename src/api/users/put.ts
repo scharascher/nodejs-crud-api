@@ -2,11 +2,13 @@ import * as Http from 'http';
 import { sendResponse } from '../../utils/sendResponse';
 import { updateUser } from './storage';
 import {
-  checkInvalidUserId,
   sendInvalidJson,
   sendInvalidUserFields,
+  sendInvalidUserId,
+  sendUserNotFound,
   validateUser,
 } from './utils';
+import { validateUuid } from '../../utils/validateUuid';
 
 export const apiUsersPut = (
   req: Http.IncomingMessage,
@@ -23,11 +25,12 @@ export const apiUsersPut = (
     try {
       const userBody = JSON.parse(requestBody);
       const id = path;
-      checkInvalidUserId(res, id);
+      if (!validateUuid(id)) return sendInvalidUserId(res);
       if (!validateUser(userBody)) {
         return sendInvalidUserFields(res);
       }
       const createdUser = updateUser(id, userBody);
+      if (!createdUser) return sendUserNotFound(res);
       return sendResponse(res, 200, createdUser);
     } catch (e) {
       return sendInvalidJson(res);

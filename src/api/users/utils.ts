@@ -1,5 +1,4 @@
 import { User } from './types';
-import { validateUuid } from '../../utils/validateUuid';
 import { sendResponse } from '../../utils/sendResponse';
 import * as Http from 'http';
 
@@ -16,23 +15,21 @@ export const validateUser = (user: any): user is Exclude<User, 'id'> => {
   );
 };
 
-export const checkInvalidUserId = (res: Http.ServerResponse, id: string) => {
-  if (!validateUuid(id)) {
-    return sendResponse(res, 400, { error: 'Invalid user id' });
-  }
+export const sendInvalidUserId = (res: Http.ServerResponse) => {
+  return sendResponse(res, 400, { error: 'Invalid user id' });
 };
 
-export const checkUserExists = (res: Http.ServerResponse, user?: User) => {
-  if (!user) {
-    return sendResponse(res, 404, { error: 'User not found' });
-  }
+export const sendUserNotFound = (res: Http.ServerResponse) => {
+  return sendResponse(res, 404, { error: 'User not found' });
 };
 
-export const sendInvalidUserFields = (res: Http.ServerResponse) =>
-  sendResponse(res, 400, {
+export const sendInvalidUserFields = (res: Http.ServerResponse) => {
+  return sendResponse(res, 400, {
     error: 'Invalid user fields',
   });
-export const sendInvalidJson = (res: Http.ServerResponse) =>
-  sendResponse(res, 400, {
+};
+export const sendInvalidJson = (res: Http.ServerResponse) => {
+  return sendResponse(res, 400, {
     error: 'Invalid JSON',
   });
+};
