@@ -1,6 +1,7 @@
 import http from 'http';
 import { sendResponse } from './utils/sendResponse';
 import { apiUsersGet } from './api/users/get';
+import { apiUsersPost } from './api/users/post';
 
 const PORT = 3000;
 const server = http.createServer((req, res) => {
@@ -12,6 +13,9 @@ const server = http.createServer((req, res) => {
   switch (req.method) {
     case 'GET': {
       return apiUsersGet(req, res, restPath);
+    }
+    case 'POST': {
+      return apiUsersPost(req, res);
     }
     default: {
       return sendResponse(res, 404, { error: 'Method not allowed' });
