@@ -1,7 +1,7 @@
 import * as Http from 'http';
 import { sendResponse } from '../../utils/sendResponse';
 import { sendInvalidJson, sendInvalidUserFields, validateUser } from './utils';
-import { databaseInstance } from '../../database';
+import { getDatabase } from '../../database';
 
 export const apiUsersPost = (
   req: Http.IncomingMessage,
@@ -19,7 +19,7 @@ export const apiUsersPost = (
       if (!validateUser(userBody)) {
         return sendInvalidUserFields(res);
       }
-      const createdUser = databaseInstance.addUser(
+      const createdUser = getDatabase().addUser(
         userBody.username,
         userBody.age,
         userBody.hobbies,

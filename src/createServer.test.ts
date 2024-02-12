@@ -2,31 +2,22 @@ import { createServer } from './createServer';
 import http, { Server } from 'http';
 import crypto from 'crypto';
 import { User } from './api/users/types';
-import * as console from 'console';
-import { databaseInstance } from './database';
+import * as database from './database';
+import { Database } from './database';
 
-jest.mock('crypto');
-const getMockedUUID = (
-  id: number,
-): `${string}-${string}-${string}-${string}-${string}` =>
-  `${id.toString().repeat(8)}-${id.toString().repeat(4)}-${id
-    .toString()
-    .repeat(4)}-${id.toString().repeat(4)}-${id.toString().repeat(12)}`;
-let currentUUID = 0;
-
-const mockedCrypto = crypto as jest.Mocked<typeof crypto>;
 const generateUser = (
   username: string,
   age: number,
   hobbies: string[] = [],
 ): User => {
   return {
-    id: getMockedUUID(currentUUID++),
+    id: crypto.randomUUID(),
     username,
     age,
     hobbies,
   };
 };
+const PORT = 3001;
 const generateMockUsers = (count: 0 | 1 | 2 | 3 | 4) => {
   const users = [
     generateUser('username1', 33, ['hobbie1', 'hobbie2']),
@@ -48,36 +39,64 @@ const getData = (
     callback(data);
   });
 };
+const getAllUsers = (port: number = PORT) => {
+  return new Promise<{ data: User[]; res: http.IncomingMessage }>((resolve) =>
+    http.get('http://localhost:' + port + '/api/users', (res) => {
+      getData(res, (data) => {
+        resolve({ data: JSON.parse(data as string), res });
+      });
+    }),
+  );
+};
 describe('createServer', () => {
   let server: Server;
-
-  let mockUsers: User[];
-
-  beforeAll(() => {
-    let id = 0;
-    currentUUID = 0;
+  beforeEach(() => {
     mockUsers = generateMockUsers(4);
-    mockedCrypto.randomUUID.mockImplementation(() => getMockedUUID(id++));
+    jest
+      .spyOn(database, 'getDatabase')
+      .mockReturnValue(new Database(mockUsers));
     server = createServer();
-    server.listen(3000);
+    server.listen(PORT);
   });
 
-  afterAll(() => {
+  afterEach(() => {
     server.close();
   });
+  let mockUsers: User[];
   describe('get /users', () => {
+    test('should return status code 200', async () => {
+      const { res } = await getAllUsers();
+      expect(res.statusCode).toBe(200);
+    });
+    test('should return users', async () => {
+      const { data } = await getAllUsers();
+      expect(data).toStrictEqual(mockUsers);
+    });
+    test('should return an emptyArray in case of no users', async () => {
+      jest.spyOn(database, 'getDatabase').mockReturnValue(new Database([]));
+      const { data } = await getAllUsers();
+      expect(data).toStrictEqual([]);
+    });
+  });
+  describe('get /users/:id', () => {
     const makeRequest = (
+      id: string,
       callback: (data: unknown, res: http.IncomingMessage) => void,
+      port: number = PORT,
     ) => {
-      return http.get('http://localhost:3000/api/users', (res) => {
-        getData(res, (data) => {
-          callback(data, res);
-        });
-      });
+      return http.get(
+        'http://localhost:' + port + '/api/users/' + id,
+        (res) => {
+          getData(res, (data) => {
+            callback(data, res);
+          });
+        },
+      );
     };
+
     test('should return status code 200', (done) => {
       try {
-        makeRequest((_, res) => {
+        makeRequest(mockUsers[0]!.id, (_, res) => {
           expect(res.statusCode).toBe(200);
           done();
         });
@@ -85,28 +104,181 @@ describe('createServer', () => {
         done(e);
       }
     });
-    test('should return mockUsers', (done) => {
+    test('should return requested user', (done) => {
       try {
-        makeRequest((data) => {
+        makeRequest(mockUsers[1]!.id, (data) => {
           expect(typeof data).toBe('string');
-          expect(JSON.parse(data as string)).toEqual(mockUsers);
-          console.log(done);
+          expect(JSON.parse(data as string)).toEqual(mockUsers[1]);
           done();
         });
       } catch (e) {
         done(e);
       }
     });
-    test('should return an emptyArray in case of no users', (done) => {
+    test('should return status code 404 with error', (done) => {
       try {
-        jest.spyOn(databaseInstance, 'getUsers').mockReturnValueOnce([]);
-        makeRequest((data) => {
-          expect(JSON.parse(data as string)).toEqual([]);
+        jest.spyOn(database, 'getDatabase').mockReturnValue(new Database([]));
+        const id = crypto.randomUUID();
+        makeRequest(id, (data, res) => {
+          expect(res.statusCode).toBe(404);
+          expect(JSON.parse(data as string)).toHaveProperty('error');
           done();
         });
       } catch (e) {
         done(e);
       }
+    });
+  });
+  describe('post /users/:id', () => {
+    const postUser = (data: Omit<User, 'id'>, port: number = PORT) => {
+      return new Promise<{ data: unknown; res: http.IncomingMessage }>(
+        (resolve, _) => {
+          const postData = JSON.stringify(data);
+          const req = http.request(
+            {
+              hostname: 'localhost',
+              port,
+              path: '/api/users',
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData),
+              },
+            },
+            (res) => {
+              getData(res, (data) => {
+                resolve({ data: JSON.parse(data as string), res });
+              });
+            },
+          );
+          req.write(postData);
+          req.end();
+        },
+      );
+    };
+    const userData = { username: 'u', age: 22, hobbies: ['1', '2'] };
+    test('should return status code 201 with posted user', async () => {
+      const response = await postUser(userData);
+      expect(response.res.statusCode).toBe(201);
+      expect(response.data).toMatchObject(userData);
+    });
+    test('last user should be posted user', async () => {
+      await postUser(userData);
+      const { data: users } = await getAllUsers();
+      expect(users[users.length - 1]).toMatchObject(userData);
+    });
+    test('should send 400 if data is invalid', async () => {
+      const { res, data } = await postUser({
+        ...userData,
+        age: '44' as unknown as number,
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(data).toHaveProperty('error');
+    });
+  });
+  describe('put /users/:id', () => {
+    const putUser = (
+      id: string,
+      data: Omit<User, 'id'>,
+      port: number = PORT,
+    ) => {
+      return new Promise<{ data: unknown; res: http.IncomingMessage }>(
+        (resolve, _) => {
+          const postData = JSON.stringify(data);
+          const req = http.request(
+            {
+              hostname: 'localhost',
+              port,
+              path: '/api/users/' + id,
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData),
+              },
+            },
+            (res) => {
+              getData(res, (data) => {
+                resolve({ data: JSON.parse(data as string), res });
+              });
+            },
+          );
+          req.write(postData);
+          req.end();
+        },
+      );
+    };
+    const userData = { username: 'u', age: 22, hobbies: ['1', '2'] };
+    test('should return status code 200 with updated user', async () => {
+      const response = await putUser(mockUsers[0]!.id, userData);
+      expect(response.res.statusCode).toBe(200);
+      expect(response.data).toStrictEqual({
+        id: mockUsers[0]!.id,
+        ...userData,
+      });
+    });
+    test('should send 400 if new data is invalid', async () => {
+      const { res, data } = await putUser(mockUsers[0]!.id, {
+        ...userData,
+        age: '44' as unknown as number,
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(data).toHaveProperty('error');
+    });
+    test('should send 400 if id is not uuid', async () => {
+      const { res, data } = await putUser('notUuid', userData);
+
+      expect(res.statusCode).toBe(400);
+      expect(data).toHaveProperty('error');
+    });
+    test('should send 404 user does not exist', async () => {
+      const { res, data } = await putUser(crypto.randomUUID(), userData);
+
+      expect(res.statusCode).toBe(404);
+      expect(data).toHaveProperty('error');
+    });
+  });
+  describe('put /users/:id', () => {
+    const deleteUser = (id: string, port: number = PORT) => {
+      return new Promise<{ res: http.IncomingMessage; data: unknown }>(
+        (resolve, _) => {
+          const req = http.request(
+            {
+              hostname: 'localhost',
+              port,
+              path: '/api/users/' + id,
+              method: 'DELETE',
+            },
+            (res) => {
+              getData(res, (data) => {
+                console.log(data);
+                resolve({
+                  res,
+                  data: data ? JSON.parse(data as string) : null,
+                });
+              });
+            },
+          );
+          req.end();
+        },
+      );
+    };
+    test('should return status code 204', async () => {
+      const response = await deleteUser(mockUsers[0]!.id);
+      expect(response.res.statusCode).toBe(204);
+    });
+    test('should send 400 if id is not uuid', async () => {
+      const { res, data } = await deleteUser('notUuid');
+
+      expect(res.statusCode).toBe(400);
+      expect(data).toHaveProperty('error');
+    });
+    test('should send 404 user does not exist', async () => {
+      const { res, data } = await deleteUser(crypto.randomUUID());
+
+      expect(res.statusCode).toBe(404);
+      expect(data).toHaveProperty('error');
     });
   });
 });

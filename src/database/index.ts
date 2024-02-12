@@ -1,8 +1,11 @@
 import crypto from 'crypto';
 import { User } from '../api/users/types';
-export let databaseInstance: Database;
+let databaseInstance: Database;
 export const createDatabase = () => {
-  databaseInstance = new Database();
+  databaseInstance = getDatabase();
+};
+export const getDatabase = () => {
+  return databaseInstance;
 };
 export class Database {
   constructor(
