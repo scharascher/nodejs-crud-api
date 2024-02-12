@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { User } from '../api/users/types';
 let databaseInstance: Database;
 export const createDatabase = () => {
-  databaseInstance = getDatabase();
+  databaseInstance = new Database();
 };
 export const getDatabase = () => {
   return databaseInstance;

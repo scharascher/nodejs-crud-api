@@ -252,7 +252,6 @@ describe('createServer', () => {
             },
             (res) => {
               getData(res, (data) => {
-                console.log(data);
                 resolve({
                   res,
                   data: data ? JSON.parse(data as string) : null,
