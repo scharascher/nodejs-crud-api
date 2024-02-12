@@ -1,6 +1,5 @@
 import * as Http from 'http';
 import { sendResponse } from '../../utils/sendResponse';
-import { updateUser } from './storage';
 import {
   sendInvalidJson,
   sendInvalidUserFields,
@@ -9,6 +8,7 @@ import {
   validateUser,
 } from './utils';
 import { validateUuid } from '../../utils/validateUuid';
+import { databaseInstance } from '../../database';
 
 export const apiUsersPut = (
   req: Http.IncomingMessage,
@@ -29,7 +29,7 @@ export const apiUsersPut = (
       if (!validateUser(userBody)) {
         return sendInvalidUserFields(res);
       }
-      const createdUser = updateUser(id, userBody);
+      const createdUser = databaseInstance.updateUser(id, userBody);
       if (!createdUser) return sendUserNotFound(res);
       return sendResponse(res, 200, createdUser);
     } catch (e) {
