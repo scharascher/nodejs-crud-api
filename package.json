@@ -7,16 +7,16 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "type": "module",
   "scripts": {
-    "start:dev": "nodemon --env-file=.env.dev ./src/index.ts",
-    "start:prod": "tsc && node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' --env-file=.env.prod ./dist/index.js",
+    "start:dev": "nodemon --env-file=.env.dev",
+    "start:prod": "tsc && node --env-file=.env.prod ./dist/index.js",
     "test": "jest --verbose --env-file=.env.dev"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.23.10",
     "@babel/preset-env": "^7.22.5",
     "@babel/preset-typescript": "^7.22.5",
+    "@types/dotenv": "^8.2.0",
     "@types/jest": "^29.5.2",
     "@types/lodash": "^4.14.195",
     "@types/node": "^20.3.1",

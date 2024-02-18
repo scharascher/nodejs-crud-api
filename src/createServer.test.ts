@@ -55,12 +55,14 @@ describe('createServer', () => {
     jest
       .spyOn(database, 'getDatabase')
       .mockReturnValue(new Database(mockUsers));
+  });
+  beforeAll(() => {
     server = createServer();
     server.listen(PORT);
   });
 
-  afterEach(() => {
-    server.close();
+  afterAll(async () => {
+    await new Promise((r) => server.close(r));
   });
   let mockUsers: User[];
   describe('get /users', () => {
